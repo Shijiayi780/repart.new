@@ -1,0 +1,59 @@
+RePart Version 1 capacity-independent physical-link load report
+Model: one weighted demand per (net, distinct remote sink FPGA), routed on a deterministic shortest path.
+Shared edges of different sink-FPGA paths are counted independently; this is not a Steiner routing tree.
+Physical links are undirected. No TDM, utilization, or real congestion is claimed without hardware link capacities.
+capacity_file=none (report-only; never used by move selection)
+thd_limit=6513 accepted_moves=9 completed_passes=9 candidates=9745 evaluated_moves=218097 runtime_seconds=300.009870 stop_reason=runtime limit during move evaluation
+reject_frozen=1701 reject_resource=26502 reject_maximum_hop=10386 reject_communication=0 reject_thd=113178 reject_unreachable=0 reject_not_improving=50788
+
+[before]
+THD=6386
+cut_size=4269
+max_hop=3
+MaxLinkLoad=352
+SquaredLoadCost=1129346.000000
+average_link_load=78.181818
+link_load_stddev=81.982197
+zero_load_links=16
+unreachable_demands=0
+total_routed_demand_weight=4874
+resource_violations=0
+communication_violations=0
+top_links: id endpoints load demands percent_of_max
+9 FPGA2--FPGA29 352 295 100.000000%
+58 FPGA13--FPGA25 304 202 86.363636%
+20 FPGA5--FPGA7 278 253 78.977273%
+56 FPGA12--FPGA28 276 262 78.409091%
+4 FPGA1--FPGA30 250 226 71.022727%
+5 FPGA2--FPGA5 246 185 69.886364%
+68 FPGA16--FPGA28 233 206 66.193182%
+59 FPGA14--FPGA16 227 211 64.488636%
+61 FPGA14--FPGA25 206 198 58.522727%
+65 FPGA16--FPGA21 198 166 56.250000%
+
+[after]
+THD=6512
+cut_size=4337
+max_hop=3
+MaxLinkLoad=318
+SquaredLoadCost=1139824.000000
+average_link_load=79.613636
+link_load_stddev=81.327820
+zero_load_links=16
+unreachable_demands=0
+total_routed_demand_weight=4961
+resource_violations=0
+communication_violations=0
+top_links: id endpoints load demands percent_of_max
+9 FPGA2--FPGA29 318 269 100.000000%
+58 FPGA13--FPGA25 304 202 95.597484%
+56 FPGA12--FPGA28 289 273 90.880503%
+20 FPGA5--FPGA7 278 253 87.421384%
+4 FPGA1--FPGA30 246 225 77.358491%
+86 FPGA28--FPGA29 240 175 75.471698%
+68 FPGA16--FPGA28 233 206 73.270440%
+59 FPGA14--FPGA16 227 211 71.383648%
+5 FPGA2--FPGA5 224 169 70.440252%
+61 FPGA14--FPGA25 206 198 64.779874%
+
+total_runtime_seconds=468.666
