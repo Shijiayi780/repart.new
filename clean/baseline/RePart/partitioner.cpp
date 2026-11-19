@@ -35,6 +35,12 @@
 #endif
 #include "refinement_snapshot.h"
 #endif
+#ifdef REPART_COMM_PROBE
+#include "refinement_comm_probe.h"
+#endif
+#ifdef REPART_NC_ACTIVATION
+#include "./net_centered/activation.h"
+#endif
 
 
 
@@ -287,6 +293,34 @@ int main(int argc, char* argv[]) {
 
             for(int i = which_layer; i >= 0; --i) {
                 Hypergraphs[i].initPinsInPart();
+#ifdef REPART_COMM_PROBE
+                refinement_comm_probe::observe(Hypergraphs[i], fpgas_comm_weight_sum,
+                                               4-explore_num, i, "entry");
+#endif
+#ifdef REPART_NC_ACTIVATION
+                {
+                    const int nc_mode = nc_activation::mode_from_env();
+                    if (nc_mode != 0) {
+                        const auto nc_start = std::chrono::steady_clock::now();
+                        nc_activation::Batch nc_batch =
+                            nc_activation::build(Hypergraphs[i], nc_mode);
+                        int nc_gain = 0;
+                        int nc_accepted = 0;
+                        if (nc_batch.has_center) {
+                            Refiner nc_move(Hypergraphs[i], fpgas_resource_usage,
+                                            fpgas_comm_weight_sum);
+                            nc_move.setActivationFilter(&nc_batch.filter);
+                            nc_gain = nc_move.refine();
+                            nc_accepted = nc_move.nc_accepted_moves;
+                            best_cost_in_this_exploration -= nc_gain;
+                        }
+                        const double nc_seconds = std::chrono::duration<double>(
+                            std::chrono::steady_clock::now() - nc_start).count();
+                        nc_activation::log_batch(nc_batch, nc_mode, 4 - explore_num, i,
+                                                 nc_accepted, nc_gain, nc_seconds);
+                    }
+                }
+#endif
 
 #ifdef REPART_UNIFIED_SEQUENCE
                 if(i==which_layer && std::getenv("REPART_RUN_UNIFIED_SEQUENCE")) {
@@ -343,6 +377,10 @@ int main(int argc, char* argv[]) {
 #ifdef REPART_REFINEMENT_SNAPSHOT
                 refinement_snapshot::observe(Hypergraphs[i], i, best_cost_in_this_exploration,
                     fpgas_resource_usage, fpgas_comm_weight_sum);
+#endif
+#ifdef REPART_COMM_PROBE
+                refinement_comm_probe::observe(Hypergraphs[i], fpgas_comm_weight_sum,
+                                               4-explore_num, i, "exit");
 #endif
                 if(i > 0){
                     updataFormerLayer(Hypergraphs, i);
@@ -474,6 +512,34 @@ int main(int argc, char* argv[]) {
 
         for(int i = which_layer; i >= 0; --i) {
             Hypergraphs[i].initPinsInPart();
+#ifdef REPART_COMM_PROBE
+            refinement_comm_probe::observe(Hypergraphs[i], fpgas_comm_weight_sum,
+                                           0, i, "entry");
+#endif
+#ifdef REPART_NC_ACTIVATION
+            {
+                const int nc_mode = nc_activation::mode_from_env();
+                if (nc_mode != 0) {
+                    const auto nc_start = std::chrono::steady_clock::now();
+                    nc_activation::Batch nc_batch =
+                        nc_activation::build(Hypergraphs[i], nc_mode);
+                    int nc_gain = 0;
+                    int nc_accepted = 0;
+                    if (nc_batch.has_center) {
+                        Refiner nc_move(Hypergraphs[i], fpgas_resource_usage,
+                                        fpgas_comm_weight_sum);
+                        nc_move.setActivationFilter(&nc_batch.filter);
+                        nc_gain = nc_move.refine();
+                        nc_accepted = nc_move.nc_accepted_moves;
+                        best_cost -= nc_gain;
+                    }
+                    const double nc_seconds = std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - nc_start).count();
+                    nc_activation::log_batch(nc_batch, nc_mode, 0, i, nc_accepted,
+                                             nc_gain, nc_seconds);
+                }
+            }
+#endif
 
             if(!replication_flag && (which_layer - i) < 3){
                 Exchanger exchanger(Hypergraphs[i], fpgas_resource_usage, fpgas_comm_weight_sum);
@@ -507,6 +573,10 @@ int main(int argc, char* argv[]) {
                 replication.Solve(gain_threshold, replication_flag);
             }
 
+#ifdef REPART_COMM_PROBE
+            refinement_comm_probe::observe(Hypergraphs[i], fpgas_comm_weight_sum,
+                                           0, i, "exit");
+#endif
 
             if(i > 0){
                 updataFormerLayer(Hypergraphs, i);

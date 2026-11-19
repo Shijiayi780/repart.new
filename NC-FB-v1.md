@@ -28,8 +28,8 @@ Base: `main` at `6c288a14` (clean workspace + EDA testcases + Titan23 benchmarks
 默认构建（精确 Move，NC 关闭）：
 
 ```bash
-g++ -std=c++17 -Ofast -DNDEBUG -I boost_1_86_0/include \
-  RePart/partitioner.cpp -L boost_1_86_0/lib \
+g++ -std=c++17 -Ofast -DNDEBUG -I clean/third_party/boost_1_86_0/include \
+  clean/baseline/RePart/partitioner.cpp -L clean/third_party/boost_1_86_0/lib \
   -static -lboost_thread -lboost_system -pthread -o partitioner
 ```
 
@@ -37,8 +37,8 @@ NC 实验构建：
 
 ```bash
 g++ -std=c++17 -Ofast -DNDEBUG -DREPART_NC_ACTIVATION \
-  -I boost_1_86_0/include RePart/partitioner.cpp \
-  -L boost_1_86_0/lib -static -lboost_thread -lboost_system -pthread \
+  -I clean/third_party/boost_1_86_0/include clean/baseline/RePart/partitioner.cpp \
+  -L clean/third_party/boost_1_86_0/lib -static -lboost_thread -lboost_system -pthread \
   -o partitioner_nc
 ```
 
@@ -80,12 +80,18 @@ REPART_NC_LOG=nc.tsv REPART_NC_MODE=B partitioner_nc ...
 
 ## 关键文件
 
-- `RePart/refinement_move/exact_move_comm.h`
-- `RePart/net_centered/activation.h`
-- `RePart/refinement_comm_probe.h`
-- `RePart/refinement_move/kway_fm_refiner.h`
-- `RePart/partitioner.cpp`
+- `clean/baseline/RePart/refinement_move/exact_move_comm.h`
+- `clean/baseline/RePart/net_centered/activation.h`
+- `clean/baseline/RePart/refinement_comm_probe.h`
+- `clean/baseline/RePart/refinement_move/kway_fm_refiner.h`
+- `clean/baseline/RePart/partitioner.cpp`
 - `tools/net_centered_module1.cpp`
 - `tools/net_centered_reference.py`
 - `tools/exact_move_comm_tests.cpp`
 - `plans/NET_CENTERED_REFINEMENT_MAPPING.md`
+
+## 源码目录整理
+
+根目录源码已整合到 `clean/baseline/RePart/`。与基线相比，保留 5 个修改文件和 3 个新增源码文件，移除 103 份完全相同的源码副本。构建命令从仓库根目录执行。原始基线可从 main 的 `6c288a14` 获取，本分支默认构建启用精确 Move 通信增量。
+
+独立 Python 参考工具还依赖本快照未包含的 `tools/replication_thd_validator.py`，批量运行工具还引用 `tools/evaluate_partition_wthd.py`，这两项在补齐前不能独立复现。

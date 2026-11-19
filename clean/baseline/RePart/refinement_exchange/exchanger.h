@@ -26,6 +26,9 @@
 
 #include "../io/fpga_manager.h"
 #include "../datastructure/hypergraph.h"
+#ifdef REPART_COMM_PROBE
+#include "../refinement_comm_probe.h"
+#endif
 #include "../datastructure/fast_reset_flag_array.h"
 #include "../datastructure/binary_heap.h"
 #ifdef REPART_EXCHANGE_FRONTIER
@@ -78,14 +81,27 @@ class Exchanger{
 
                 if (exchangeIsFeasible(max_gain_node, exchanger)) {
                     std::vector<int> comm_change(hypergraph.fpga_manager.fpga_num, 0);
+#ifdef REPART_COMM_PROBE
+                    refinement_comm_probe::ActionProbe comm_probe(
+                        hypergraph, fpga_comm_weight_sum, max_gain_node, exchanger);
+                    const int comm_probe_gain = pq.topKey();
+#endif
                     if (!checkAndChangeComm(max_gain_node, exchanger, comm_change)) {
                         pq.pop();
                         continue;
                     }
 
+#ifdef REPART_COMM_PROBE
+                    this_gain += comm_probe_gain;
+#else
                     this_gain += pq.topKey();
+#endif
                     exchangeHypernode(max_gain_node, exchanger);
-                    
+#ifdef REPART_COMM_PROBE
+                    comm_probe.finish("exchange", from_part, to_part,
+                                      comm_probe_gain);
+#endif
+
                     pq.remove(max_gain_node);
                     if (pq.contains(exchanger)) {
                         pq.remove(exchanger);

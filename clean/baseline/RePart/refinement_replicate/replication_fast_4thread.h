@@ -8,6 +8,9 @@
 #include "../datastructure/hypergraph.h"
 #include "../io/fpga_manager.h"
 #include "../datastructure/binary_heap.h"
+#ifdef REPART_COMM_PROBE
+#include "../refinement_comm_probe.h"
+#endif
 
 #include "../../boost_1_86_0/include/boost/thread/thread.hpp"
 #include "../../boost_1_86_0/include/boost/thread/mutex.hpp"
@@ -82,7 +85,17 @@ public:
                 std::unordered_map<int, int> fpgas_comm_change;
                 std::unordered_map<int, std::vector<int>> hyperedges_target_pins_in_part_new;
                 if (canReplicate(max_node_id, max_fpga_id, fpgas_comm_change, hyperedges_target_pins_in_part_new)) {
+#ifdef REPART_COMM_PROBE
+                    const int comm_probe_from_board =
+                        hypergraph.hypernodes[max_node_id].label;
+                    refinement_comm_probe::ActionProbe comm_probe(
+                        hypergraph, communication_usage, max_node_id, -1);
+#endif
                     replicateNode(max_node_id, max_fpga_id, max_gain, fpgas_comm_change, hyperedges_target_pins_in_part_new);
+#ifdef REPART_COMM_PROBE
+                    comm_probe.finish("replicate", comm_probe_from_board,
+                                      max_fpga_id, max_gain);
+#endif
                     replication_flag = true;
                     UpdateNeighbourNodes(max_node_id, max_fpga_id);
                     ++rep_num;

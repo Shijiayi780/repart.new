@@ -9,6 +9,9 @@
 #include "../datastructure/hypergraph.h"
 #include "../io/fpga_manager.h"
 #include "../datastructure/binary_heap.h"
+#ifdef REPART_COMM_PROBE
+#include "../refinement_comm_probe.h"
+#endif
 
 #include "../../boost_1_86_0/include/boost/thread/thread.hpp"
 #include "../../boost_1_86_0/include/boost/thread/mutex.hpp"
@@ -102,7 +105,17 @@ public:
                 std::unordered_map<int, int> fpgas_comm_change;
                 std::unordered_map<int, std::vector<int>> hyperedges_target_pins_in_part_new;
                 if (canDelete(max_master_id, max_replication_fpga_id, fpgas_comm_change, hyperedges_target_pins_in_part_new)) {
+#ifdef REPART_COMM_PROBE
+                    const int comm_probe_from_board =
+                        hypergraph.hypernodes[max_master_id].label;
+                    refinement_comm_probe::ActionProbe comm_probe(
+                        hypergraph, communication_usage, max_master_id, -1);
+#endif
                     deleteNode(max_master_id, max_replication_fpga_id, max_gain, fpgas_comm_change, hyperedges_target_pins_in_part_new);
+#ifdef REPART_COMM_PROBE
+                    comm_probe.finish("delete", comm_probe_from_board,
+                                      max_replication_fpga_id, max_gain);
+#endif
                     updateNeighbourNodes(max_master_id, max_replication_fpga_id);
                     ++count;
                 }

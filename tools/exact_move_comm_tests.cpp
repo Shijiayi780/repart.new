@@ -4,9 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "../RePart/datastructure/hypergraph.h"
-#include "../RePart/refinement_move/exact_move_comm.h"
-#include "../RePart/refinement_comm_probe.h"
+#include "../clean/baseline/RePart/datastructure/hypergraph.h"
+#include "../clean/baseline/RePart/refinement_move/exact_move_comm.h"
+#include "../clean/baseline/RePart/refinement_comm_probe.h"
 
 namespace {
 

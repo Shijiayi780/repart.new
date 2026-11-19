@@ -13,10 +13,10 @@
 #include <utility>
 #include <vector>
 
-#include "../RePart/datastructure/hypergraph.h"
-#include "../RePart/io/hypergraph_readin.h"
-#include "../RePart/refinement_move/kway_fm_refiner.h"
-#include "../RePart/refinement_native_move_probe.h"
+#include "../clean/baseline/RePart/datastructure/hypergraph.h"
+#include "../clean/baseline/RePart/io/hypergraph_readin.h"
+#include "../clean/baseline/RePart/refinement_move/kway_fm_refiner.h"
+#include "../clean/baseline/RePart/refinement_native_move_probe.h"
 
 namespace fs = std::filesystem;
 

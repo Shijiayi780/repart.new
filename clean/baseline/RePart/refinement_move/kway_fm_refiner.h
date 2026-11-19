@@ -2,6 +2,18 @@
 #ifdef REPART_UNIFIED_SEQUENCE
 #include "../unified_sequence_switch.h"
 #endif
+#ifdef REPART_COMM_PROBE
+#include "../refinement_comm_probe.h"
+#endif
+#ifdef REPART_NC_ACTIVATION
+#include "../net_centered/activation.h"
+#endif
+// Default Move path: exact per-Net communication delta.
+// Define REPART_LEGACY_MOVE_COMM to restore the original fast entry
+// (evaluateFPGACommChange / checkAndChangeComm) for comparison.
+#ifndef REPART_LEGACY_MOVE_COMM
+#include "exact_move_comm.h"
+#endif
 
 #include <algorithm>
 #include <bitset>
@@ -40,6 +52,18 @@ class KWayFMRefiner{
     FastResetFlagArray<int> activated_hyperedges;
     FastResetFlagArray<int> outdated_rating;
     std::vector<int> &fpga_comm_weight_sum;
+#ifdef REPART_NC_ACTIVATION
+    nc_activation::ActivationFilter* activation_filter = nullptr;
+    int nc_accepted_moves = 0;
+
+    void setActivationFilter(nc_activation::ActivationFilter* filter) {
+        activation_filter = filter;
+    }
+
+    bool nodeAllowed(const int node) const {
+        return activation_filter == nullptr || activation_filter->allows(node);
+    }
+#endif
 
 
     KWayFMRefiner(Hypergraph& hg, 
@@ -85,14 +109,45 @@ class KWayFMRefiner{
                 else {
                     if (refiner_base.moveIsFeasible(max_gain_node, hypergraph.hypernodes[max_gain_node].label, max_to_part))
                     {
+#ifndef REPART_LEGACY_MOVE_COMM
+                        std::vector<int> exact_comm_delta;
+#else
                         std::vector<int> comm_change(hypergraph.fpga_manager.fpga_num, 0);
+#endif
+#ifdef REPART_COMM_PROBE
+                        refinement_comm_probe::ActionProbe comm_probe(
+                            hypergraph, fpga_comm_weight_sum, max_gain_node, -1);
+                        const int comm_probe_gain = kpq[max_to_part].topKey();
+#endif
+#ifndef REPART_LEGACY_MOVE_COMM
+                        if (!checkAndChangeCommExact(max_gain_node, max_to_part,
+                                                     exact_comm_delta)) {
+                            kpq[max_to_part].pop();
+                            continue;
+                        }
+#else
                         if (!checkAndChangeComm(max_gain_node, max_from_part, max_to_part, comm_change)) {
                             kpq[max_to_part].pop();
                             continue;
                         }
+#endif
 
+#ifdef REPART_COMM_PROBE
+                        this_gain += comm_probe_gain;
+#else
                         this_gain += kpq[max_to_part].topKey();
+#endif
                         moveHypernode(max_gain_node, max_from_part, max_to_part);
+#ifndef REPART_LEGACY_MOVE_COMM
+                        applyCommDelta(exact_comm_delta);
+#endif
+#ifdef REPART_COMM_PROBE
+                        comm_probe.finish("move", max_from_part, max_to_part,
+                                          comm_probe_gain);
+#endif
+#ifdef REPART_NC_ACTIVATION
+                        ++nc_accepted_moves;
+#endif
 
                         updateGainAndCost(max_gain_node, max_from_part, max_to_part);
                         invalidateRating(max_gain_node);
@@ -171,6 +226,18 @@ class KWayFMRefiner{
         }
 
     }
+
+#ifndef REPART_LEGACY_MOVE_COMM
+    bool checkAndChangeCommExact(const int u, const int to_part,
+                                 std::vector<int>& delta) {
+        return exact_move_comm::feasible(hypergraph, fpga_comm_weight_sum, u,
+                                         to_part, delta);
+    }
+
+    void applyCommDelta(const std::vector<int>& delta) {
+        exact_move_comm::apply(fpga_comm_weight_sum, delta);
+    }
+#endif
 
     bool checkAndChangeComm(const int u, const int from_part, const int to_part,
                             std::vector<int>& comm_change) {
@@ -340,11 +407,23 @@ class KWayFMRefiner{
         for (const Hypernode& hn : hypergraph.hypernodes) {
             if (hn.deleted || activated_nodes[hn.id] == 0)
                 continue;
+#ifdef REPART_NC_ACTIVATION
+            if (!nodeAllowed(hn.id)) continue;
+#endif
             rateOneNodeToAllParts(hn.id);
         }
     }
 
     void rateOneNodeToAllParts(const int u) {
+#ifdef REPART_NC_ACTIVATION
+        if (!nodeAllowed(u)) {
+            for (int i = 0; i < static_cast<int>(kpq.size()); ++i) {
+                if (kpq[i].contains(u)) kpq[i].remove(u);
+            }
+            outdated_rating.set(u, false);
+            return;
+        }
+#endif
         std::unordered_map<int, int> tmp_ratings;
         FPGAManager& fpga_manager = hypergraph.fpga_manager;
 
@@ -459,6 +538,7 @@ class KWayFMRefiner{
                 kpq[i].remove(u);
             }
         }
+        bool inserted_any = false;
         for (auto p : tmp_ratings) {
 #ifdef REPART_UNIFIED_SEQUENCE
             // Keep the original destination domain; legality is checked before
@@ -468,9 +548,15 @@ class KWayFMRefiner{
             if (p.second > 0) {
 #endif
                 kpq[p.first].push(u, p.second);
+                inserted_any = true;
             }
 
         }
+#ifdef REPART_NC_ACTIVATION
+        if (activation_filter != nullptr && inserted_any) {
+            activation_filter->markInserted(u);
+        }
+#endif
     }
 
     void computeAllEdgeHopDistanceCost() {
